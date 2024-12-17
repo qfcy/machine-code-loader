@@ -28,7 +28,8 @@ direct_funcs.extend(['strdup', 'strchr', 'strrchr', 'strpbrk', 'strstr', 'memchr
 funcs.extend(['isalnum', 'isalpha', 'islower', 'isupper', 'isdigit', 'isxdigit', 'iscntrl', 'isgraph', 'isspace', 'isblank', 'isprint', 'ispunct', 'tolower', 'toupper'])
 funcs.extend(['fopen', 'freopen', 'fclose', 'fflush', 'setbuf', 'setvbuf', 'fread', 'fwrite'])
 funcs.extend(['difftime', 'time', 'clock', 'asctime',  'ctime', 'strftime', 'gmtime', 'localtime', 'mktime'])
-funcs.extend(['system','exit','signal','longjmp'])
+funcs.extend(['system','exit','raise','signal','longjmp'])
+direct_funcs.extend(['access', 'chdir', 'getcwd', 'mkdir', 'rmdir', 'rename', 'unlink', 'close', 'dup', 'dup2', 'read', 'write', 'execve', 'getpid', 'sleep', 'usleep', 'getenv', 'isatty', 'getopt', 'ftruncate', 'lseek']) # windows可用的部分unistd.h函数
 
 TAB=" "*4
 with open("runtime_env.h","w",encoding="utf-8") as f:
@@ -43,6 +44,7 @@ with open("runtime_env.h","w",encoding="utf-8") as f:
 #include <cctype>
 #include <csignal>
 #include <csetjmp>
+#include <unistd.h>
 #include "constants.h"
 
 struct RuntimeEnv {{
@@ -52,7 +54,11 @@ struct RuntimeEnv {{
     int (*import)(const char *);
     void* (*getLibraryFunc)(const char *,const char *);
     void (*freeLibrary)(const char *);
-    void (*debugModuleInfo)();\
+    void (*debugModuleInfo)();
+    FILE* (*getstdin)();
+    FILE* (*getstdout)();
+    FILE* (*getstderr)();
+    void (*abort)();\
 """,file=f)
     for func in funcs:
         print(TAB+f"decltype(std::{func}) *{func};",file=f)

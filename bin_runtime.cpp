@@ -137,6 +137,10 @@ void debugModuleInfo(){
         printf("\n");
     }
 }
+FILE *getstdin(){return stdin;} // stdin为调用__acrt_iob_func的宏
+FILE *getstdout(){return stdout;}
+FILE *getstderr(){return stderr;}
+void abort_(){raise(SIGABRT);} // 不使用标准库的abort
 
 static RuntimeEnv *runtime_env=new RuntimeEnv();
 using ExecutableMain=int (*)(int,const char**,RuntimeEnv*);
@@ -149,6 +153,10 @@ void initRuntimeEnv(RuntimeEnv *runtime_env){
     runtime_env->getLibraryFunc=getLibraryFunc;
     runtime_env->freeLibrary=freeLibrary;
     runtime_env->debugModuleInfo=debugModuleInfo;
+    runtime_env->getstdin=getstdin;
+    runtime_env->getstdout=getstdout;
+    runtime_env->getstderr=getstderr;
+    runtime_env->abort=abort_;
 }
 int execExecutable(const char *filename,int argc,const char *argv[]){
     // argv的第0项是程序目录，从第1项开始是命令行参数
@@ -157,15 +165,23 @@ int execExecutable(const char *filename,int argc,const char *argv[]){
     if(import_result!=0)
         throw runtime_error(
             "Import main module failed with code "+to_string(import_result));
-    signal(SIGSEGV, signal_handler);
-    if(setjmp(jmp_env)==0){
+    signal(SIGABRT, signal_handler);
+    signal(SIGSEGV, signal_handler);int signum;
+    if((signum=setjmp(jmp_env))==0){
         int result=mainfunc(argc,argv,runtime_env);
-        signal(SIGSEGV, SIG_DFL);
+        signal(SIGABRT, SIG_DFL);signal(SIGSEGV, SIG_DFL);
         freeExecMemory((void *)mainfunc,size);
         return result;
     }else{
-        printf("Segmentation fault caused when executing %s\n",filename);
-        signal(SIGSEGV, SIG_DFL);
+        switch(signum){
+            case SIGABRT:
+                printf("%s called abort(), exiting\n",filename);break;
+            case SIGSEGV:
+                printf("Segmentation fault caused from %s\n",filename);break;
+            default:
+                printf("Caught signal %d from %s\n",signum,filename);
+        }
+        signal(SIGABRT, SIG_DFL);signal(SIGSEGV, SIG_DFL);
         freeExecMemory((void *)mainfunc,size);
         return INT_MAX;
     }

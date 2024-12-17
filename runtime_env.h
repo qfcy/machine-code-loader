@@ -8,6 +8,7 @@
 #include <cctype>
 #include <csignal>
 #include <csetjmp>
+#include <unistd.h>
 #include "constants.h"
 
 struct RuntimeEnv {
@@ -18,6 +19,10 @@ struct RuntimeEnv {
     void* (*getLibraryFunc)(const char *,const char *);
     void (*freeLibrary)(const char *);
     void (*debugModuleInfo)();
+    FILE* (*getstdin)();
+    FILE* (*getstdout)();
+    FILE* (*getstderr)();
+    void (*abort)();
     decltype(std::malloc) *malloc;
     decltype(std::calloc) *calloc;
     decltype(std::realloc) *realloc;
@@ -108,6 +113,7 @@ struct RuntimeEnv {
     decltype(std::mktime) *mktime;
     decltype(std::system) *system;
     decltype(std::exit) *exit;
+    decltype(std::raise) *raise;
     decltype(std::signal) *signal;
     decltype(std::longjmp) *longjmp;
     decltype(::_errno) *_errno;
@@ -292,6 +298,27 @@ struct RuntimeEnv {
     decltype(::strstr) *strstr;
     decltype(::memchr) *memchr;
     decltype(::memccpy) *memccpy;
+    decltype(::access) *access;
+    decltype(::chdir) *chdir;
+    decltype(::getcwd) *getcwd;
+    decltype(::mkdir) *mkdir;
+    decltype(::rmdir) *rmdir;
+    decltype(::rename) *rename;
+    decltype(::unlink) *unlink;
+    decltype(::close) *close;
+    decltype(::dup) *dup;
+    decltype(::dup2) *dup2;
+    decltype(::read) *read;
+    decltype(::write) *write;
+    decltype(::execve) *execve;
+    decltype(::getpid) *getpid;
+    decltype(::sleep) *sleep;
+    decltype(::usleep) *usleep;
+    decltype(::getenv) *getenv;
+    decltype(::isatty) *isatty;
+    decltype(::getopt) *getopt;
+    decltype(::ftruncate) *ftruncate;
+    decltype(::lseek) *lseek;
     RuntimeEnv(){
         malloc=std::malloc;
         calloc=std::calloc;
@@ -383,6 +410,7 @@ struct RuntimeEnv {
         mktime=std::mktime;
         system=std::system;
         exit=std::exit;
+        raise=std::raise;
         signal=std::signal;
         longjmp=std::longjmp;
         _errno=::_errno;
@@ -567,6 +595,27 @@ struct RuntimeEnv {
         strstr=::strstr;
         memchr=::memchr;
         memccpy=::memccpy;
+        access=::access;
+        chdir=::chdir;
+        getcwd=::getcwd;
+        mkdir=::mkdir;
+        rmdir=::rmdir;
+        rename=::rename;
+        unlink=::unlink;
+        close=::close;
+        dup=::dup;
+        dup2=::dup2;
+        read=::read;
+        write=::write;
+        execve=::execve;
+        getpid=::getpid;
+        sleep=::sleep;
+        usleep=::usleep;
+        getenv=::getenv;
+        isatty=::isatty;
+        getopt=::getopt;
+        ftruncate=::ftruncate;
+        lseek=::lseek;
     }
 };
 
