@@ -22,6 +22,7 @@ struct RuntimeEnv {
     FILE* (*getstdin)();
     FILE* (*getstdout)();
     FILE* (*getstderr)();
+    void (*stackTrace)();
     void (*abort)();
     decltype(std::malloc) *malloc;
     decltype(std::calloc) *calloc;

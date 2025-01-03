@@ -12,9 +12,18 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#ifdef _WIN32
+#include <dbghelp.h>
+#include <Psapi.h>
+#else
+#include <execinfo.h>
+#endif
 using namespace std;
 
 using uchar=unsigned char;
+using ushort=unsigned short;
+const size_t MAX_STACKTRACE_SIZE=256;
+const size_t MAX_STACKTRACE_NAMELEN_WIN=256;
 #ifdef _WIN32
 const uchar pathsep='\\';
 const int current_platform=WIN32_;
@@ -137,6 +146,95 @@ void debugModuleInfo(){
         printf("\n");
     }
 }
+pair<string,void *> findModuleByAddress(void *stack_address){
+    size_t address=(size_t)stack_address;
+    for(const auto &[name,info]:imported_funcs){
+        size_t addr=(size_t)info.first;
+        size_t size=info.second;
+        if(address>=(size_t)addr && address<(size_t)addr+size){
+            return pair<string,void *>(name,info.first);
+        }
+    }
+    return make_pair<string,void *>("",nullptr);
+}
+#ifdef _WIN32
+void stackTrace() {  
+    void *stack[MAX_STACKTRACE_SIZE];  
+    ushort frames;  
+    SYMBOL_INFO *symbol;  
+    HANDLE process = GetCurrentProcess();  
+
+    // 初始化符号处理  
+    SymInitialize(process, NULL, TRUE);
+
+    // 获取调用栈  
+    frames = CaptureStackBackTrace(0, MAX_STACKTRACE_SIZE, stack, NULL);  
+    symbol = (SYMBOL_INFO *)malloc(sizeof(SYMBOL_INFO) + \
+              MAX_STACKTRACE_NAMELEN_WIN * sizeof(char));
+    symbol->MaxNameLen = MAX_STACKTRACE_NAMELEN_WIN-1;
+    symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+
+    fprintf(stderr, "Stacktrace:\n");
+    for (ushort i = 0; i < frames; i++) {
+        void *address=stack[i]; // 栈的当前地址
+        // 从系统获取符号信息
+        DWORD64 baseAddr = SymGetModuleBase(process, (DWORD64)address);
+        DWORD64 funcOffset = (DWORD64)address - baseAddr; // 函数相对模块基地址的偏移量
+        char filename[MAX_STACKTRACE_NAMELEN_WIN];
+        IMAGEHLP_MODULE64 moduleInfo;
+        moduleInfo.SizeOfStruct = sizeof(IMAGEHLP_MODULE64);
+        const char *moduleName;
+        if (SymGetModuleInfo64(process, (DWORD64)address, &moduleInfo)){
+            char *token,*context;
+            moduleName=moduleInfo.ImageName;
+            token=strtok_s(moduleInfo.ImageName,"/\\",&context);
+            while(token!=nullptr){
+                moduleName=token;
+                token=strtok_s(nullptr,"/\\",&context);
+            }
+        } else moduleName=nullptr;
+        const char *funcName;size_t funcAddress=0; // 函数的绝对地址
+        if(SymFromAddr(process, (DWORD64)address, 0, symbol)){
+            funcName=symbol->Name;
+            funcAddress=symbol->Address;
+        } else funcName=nullptr;
+
+        //从加载的bin文件自身获取符号
+        if(!moduleName && !funcName){
+            auto info=findModuleByAddress(address);
+            if(!info.first.empty()){
+                funcName=info.first.c_str();
+                funcAddress=(size_t)info.second;
+            }
+        }
+        const char *base_msg=(moduleName)?"ModuleBase + ":"";
+        if(funcName){
+            fprintf(stderr, "%s ! %s (%s0x%llx + 0x%llx)\n", 
+                    defaultVal((const char*)moduleName,"<Unknown module>"), funcName,
+                    base_msg, funcAddress-baseAddr, address-funcAddress);
+        } else {
+            fprintf(stderr, "%s ! <Unknown function> (%s0x%llx)\n", 
+                    defaultVal((const char*)moduleName,"<Unknown module>"), 
+                    base_msg, (DWORD64)address - baseAddr);
+        }
+    }
+
+    free(symbol);
+    SymCleanup(process);
+}
+#else
+void stackTrace() {
+    void *array[MAX_STACKTRACE_SIZE];  
+    size_t size;  
+
+    // 获取堆栈中的地址  
+    size = backtrace(array, MAX_STACKTRACE_SIZE);  
+
+    // 打印堆栈信息  
+    fprintf(stderr, "Stacktrace:\n");
+    backtrace_symbols_fd(array, size, STDERR_FILENO);
+}
+#endif
 FILE *getstdin(){return stdin;} // stdin为调用__acrt_iob_func的宏
 FILE *getstdout(){return stdout;}
 FILE *getstderr(){return stderr;}
@@ -156,6 +254,7 @@ void initRuntimeEnv(RuntimeEnv *runtime_env){
     runtime_env->getstdin=getstdin;
     runtime_env->getstdout=getstdout;
     runtime_env->getstderr=getstderr;
+    runtime_env->stackTrace=stackTrace;
     runtime_env->abort=abort_;
 }
 int execExecutable(const char *filename,int argc,const char *argv[]){
@@ -181,6 +280,7 @@ int execExecutable(const char *filename,int argc,const char *argv[]){
             default:
                 printf("Caught signal %d from %s\n",signum,filename);
         }
+        stackTrace();
         signal(SIGABRT, SIG_DFL);signal(SIGSEGV, SIG_DFL);
         freeExecMemory((void *)mainfunc,size);
         return INT_MAX;

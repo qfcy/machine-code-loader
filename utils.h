@@ -27,6 +27,10 @@ public:
     }
     string msg;
 };
+template<typename T>
+inline T defaultVal(T val1,T val2){
+    return (val1)?(val1):(val2);
+}
 inline void assert(bool expr,const char *msg="Assertion failed",bool throw_err=true){
     if(!expr){
         if(throw_err)throw runtime_error(msg);
@@ -182,6 +186,7 @@ void freeExecMemory(void *pMemory, size_t size) {
 }
 
 using _utils_h::filenotfound;
+using _utils_h::defaultVal;
 using _utils_h::assert;
 using _utils_h::convert_size;
 using _utils_h::find_submem;

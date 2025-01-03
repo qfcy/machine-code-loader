@@ -15,7 +15,7 @@
 
 **bin文件的编写**  
 编写bin文件和编写普通C/C++程序相同，但目前需要注意：  
-- bin文件目前只能通过env调用外部函数，不能直接调用外部函数，因此无法使用C++的多数特性，甚至`new`、`delete`。(`static_cast`等部分不调用外部函数的特性除外)
+- bin文件目前只能通过env调用外部函数，不能直接调用外部函数，因此无法使用C++的多数特性，甚至`new`、`delete`。(`static_cast`等部分不用调用外部函数的特性除外)
 - bin文件不支持定义在常量存储区的字符串，如`const char *s="test";`，需要将常量字符串放在栈上分配，如`char s[]="test";`，由于编译器会将栈上分配的字符串数据存放在代码段，嵌入机器码中。
 - `main`函数需要定义`DUMP_BIN`，或者`DUMP_BIN_SIZE`和`DUMP_BIN_MINSIZE`的宏，用来在编译后运行`bin_dk`时导出这些函数的机器码，生成bin文件。
 如果导出的bin文件过小，运行时会出现段错误。可以通过在`DUMP_BIN_MINSIZE`中增加导出大小来解决。
@@ -44,7 +44,8 @@ int main() { // 仅用于导出机器码到.bin文件
 - `void* env->getLibraryFunc(const char *libname, const char *funcname)`: 获取外部动态库(dll或so文件)的函数，libname是动态库的文件名，funcname是函数名，失败时返回`nullptr`。
 动态库会在第一次调用`getLibraryFunc`时自动加载，无需手动加载。
 - `void env->freeLibrary(const char *libname)`: 显式释放加载的动态库，释放后如果再次用相同库调用`getLibraryFunc`，库会被重新加载。
-- `void env->debugModuleInfo()`: 向标准输出打印出当前已加载的其他bin文件模块，和加载的动态库的信息。
+- `void env->debugModuleInfo()`: 向`stdout`输出当前已加载的其他bin文件模块，和加载的动态库的信息。
+- `void env->stackTrace()`: 向`stderr`输出当前堆栈信息。
 
 ## bin_runtime.cpp
 

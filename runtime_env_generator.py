@@ -58,6 +58,7 @@ struct RuntimeEnv {{
     FILE* (*getstdin)();
     FILE* (*getstdout)();
     FILE* (*getstderr)();
+    void (*stackTrace)();
     void (*abort)();\
 """,file=f)
     for func in funcs:
